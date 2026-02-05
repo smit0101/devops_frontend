@@ -25,6 +25,11 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.smit.web.ApiService
 import com.smit.web.AuthStore
+import io.ktor.client.plugins.ClientRequestException
+import io.ktor.client.statement.bodyAsText
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -39,6 +44,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
     
     val scope = rememberCoroutineScope()
     val apiService = remember { ApiService() }
+    var showForgotDialog by remember { mutableStateOf(false) }
 
     // Dynamic Background
     Box(
@@ -115,28 +121,39 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                     shape = RoundedCornerShape(12.dp)
                 )
 
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it; error = null },
-                    label = { Text("Password") },
-                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
-                    trailingIcon = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(
-                                imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                contentDescription = if (passwordVisible) "Hide password" else "Show password"
-                            )
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it; error = null },
+                        label = { Text("Password") },
+                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                    contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                )
+                            }
+                        },
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { /* Trigger login */ }),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    
+                    if (isLoginMode) {
+                        TextButton(
+                            onClick = { showForgotDialog = true },
+                            modifier = Modifier.align(Alignment.End)
+                        ) {
+                            Text("Forgot Password?", style = MaterialTheme.typography.bodySmall)
                         }
-                    },
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { /* Trigger login */ }),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                )
+                    }
+                }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Action Button
                 Button(
@@ -154,13 +171,26 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                                 } else {
                                     apiService.register(username, password)
                                 }
+                                println("Login successful for user: ${response.username}")
+                                println("Token: ${response.token}")
                                 AuthStore.setSession(response.token, response.username, response.roles)
                                 onLoginSuccess()
+                            } catch (e: ClientRequestException) {
+                                println("ClientRequestException: ${e.message}")
+                                try {
+                                    val errorBody = e.response.bodyAsText()
+                                    println("Error body: $errorBody")
+                                    // Parse {"error": "message"}
+                                    val json = Json.parseToJsonElement(errorBody).jsonObject
+                                    error = json["error"]?.jsonPrimitive?.content ?: "Authentication failed (HTTP ${e.response.status.value})"
+                                } catch (parseError: Exception) {
+                                    error = "Authentication failed: ${e.message}"
+                                }
                             } catch (e: Exception) {
-                                error = "Authentication failed. Please check your credentials."
+                                println("General Exception during login: ${e::class.simpleName} - ${e.message}")
+                                error = "Connection error: ${e.message ?: "Could not reach server. Check CORS/Network."}"
                                 e.printStackTrace()
-                            } finally {
-                                isLoading = false
+                            } finally {                                isLoading = false
                             }
                         }
                     },
@@ -194,5 +224,18 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                 }
             }
         }
+    }
+
+    if (showForgotDialog) {
+        AlertDialog(
+            onDismissRequest = { showForgotDialog = false },
+            title = { Text("Reset Password") },
+            text = { Text("For security reasons, password resets must be initiated by a system administrator. Please contact your DevOps lead to reset your credentials.") },
+            confirmButton = {
+                Button(onClick = { showForgotDialog = false }) {
+                    Text("Got it")
+                }
+            }
+        )
     }
 }

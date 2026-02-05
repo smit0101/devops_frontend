@@ -27,13 +27,15 @@ import kotlinx.coroutines.delay
 @Composable
 fun DeploymentCard(
     deployment: Deployment,
-    onDeleteClick: (Long) -> Unit,
-    onStatusUpdateClick: (Long, DeploymentStatus) -> Unit,
+    onDeleteClick: ((Long) -> Unit)? = null,
+    onStatusUpdateClick: ((Long, DeploymentStatus) -> Unit)? = null,
     onLogsClick: (Deployment) -> Unit,
-    onRedeployClick: (Deployment) -> Unit
+    onRedeployClick: ((Deployment) -> Unit)? = null
 ) {
     val uriHandler = LocalUriHandler.current
     val isRunning = deployment.status == DeploymentStatus.IN_PROGRESS
+    
+    val isAdmin = onDeleteClick != null // Simplified check based on passed callbacks
     
     val statusColor = when (deployment.status) {
         DeploymentStatus.COMPLETED -> Color(0xFF00C853)
@@ -208,13 +210,15 @@ fun DeploymentCard(
                 )
 
                 Row {
-                    IconButton(onClick = { onRedeployClick(deployment) }) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Redeploy / Rollback",
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                            modifier = Modifier.size(20.dp)
-                        )
+                    if (onRedeployClick != null) {
+                        IconButton(onClick = { onRedeployClick(deployment) }) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Redeploy / Rollback",
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
 
                     IconButton(onClick = { onLogsClick(deployment) }) {
@@ -237,7 +241,7 @@ fun DeploymentCard(
                         }
                     }
 
-                    if (deployment.status != DeploymentStatus.COMPLETED && deployment.status != DeploymentStatus.FAILED) {
+                    if (onStatusUpdateClick != null && deployment.status != DeploymentStatus.COMPLETED && deployment.status != DeploymentStatus.FAILED) {
                         IconButton(onClick = {
                             val nextStatus = when (deployment.status) {
                                 DeploymentStatus.PENDING -> DeploymentStatus.IN_PROGRESS
@@ -255,13 +259,15 @@ fun DeploymentCard(
                         }
                     }
                     
-                    IconButton(onClick = { onDeleteClick(deployment.id) }) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Delete",
-                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
-                            modifier = Modifier.size(20.dp)
-                        )
+                    if (onDeleteClick != null) {
+                        IconButton(onClick = { onDeleteClick(deployment.id) }) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete",
+                                tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }

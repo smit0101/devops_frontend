@@ -127,13 +127,15 @@ fun DashboardScreen() {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showCreateDialog = true },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = androidx.compose.foundation.shape.CircleShape
-            ) {
-                Icon(Icons.Default.Add, "Create Deployment", modifier = Modifier.size(32.dp))
+            if (AuthStore.isAdmin()) {
+                FloatingActionButton(
+                    onClick = { showCreateDialog = true },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shape = androidx.compose.foundation.shape.CircleShape
+                ) {
+                    Icon(Icons.Default.Add, "Create Deployment", modifier = Modifier.size(32.dp))
+                }
             }
         }
     ) { paddingValues ->
@@ -263,9 +265,10 @@ fun DashboardScreen() {
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(filteredDeployments, key = { it.id }) { deployment ->
+                        val isAdmin = AuthStore.isAdmin()
                         DeploymentCard(
                             deployment = deployment,
-                            onDeleteClick = { id ->
+                            onDeleteClick = if (isAdmin) { id ->
                                 coroutineScope.launch {
                                     try {
                                         apiService.deleteDeployment(id)
@@ -274,8 +277,8 @@ fun DashboardScreen() {
                                         snackbarHostState.showSnackbar("Failed to delete")
                                     }
                                 }
-                            },
-                            onStatusUpdateClick = { id, status ->
+                            } else null,
+                            onStatusUpdateClick = if (isAdmin) { id, status ->
                                 coroutineScope.launch {
                                     try {
                                         apiService.updateDeploymentStatus(id, status)
@@ -283,12 +286,12 @@ fun DashboardScreen() {
                                         snackbarHostState.showSnackbar("Failed to update status")
                                     }
                                 }
-                            },
+                            } else null,
                             onLogsClick = { viewingLogsFor = it },
-                            onRedeployClick = { 
-                                redeployingTemplate = it
+                            onRedeployClick = if (isAdmin) { d ->
+                                redeployingTemplate = d
                                 showCreateDialog = true
-                            }
+                            } else null
                         )
                     }
                 }

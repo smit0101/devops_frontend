@@ -51,6 +51,7 @@ data class AuthResponse(val token: String, val username: String, val roles: Set<
 
 class ApiService {
     private val client = HttpClient {
+        expectSuccess = true
         install(ContentNegotiation) {
             json(Json {
                 ignoreUnknownKeys = true
@@ -71,17 +72,23 @@ class ApiService {
     // In a future refactor, we can install the Auth plugin to the HttpClient
     
     suspend fun login(username: String, password: String): AuthResponse {
-        return client.post("$authUrl/login") {
+        val response = client.post("$authUrl/login") {
             contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
             setBody(LoginRequest(username, password))
-        }.body()
+        }
+        println("Login response status: ${response.status}")
+        return response.body()
     }
 
     suspend fun register(username: String, password: String): AuthResponse {
-        return client.post("$authUrl/register") {
+        val response = client.post("$authUrl/register") {
             contentType(ContentType.Application.Json)
+            accept(ContentType.Application.Json)
             setBody(LoginRequest(username, password))
-        }.body()
+        }
+        println("Register response status: ${response.status}")
+        return response.body()
     }
     
     suspend fun changePassword(old: String, new: String) {
